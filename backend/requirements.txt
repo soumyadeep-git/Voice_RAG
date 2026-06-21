@@ -1,0 +1,22 @@
+# Web framework
+fastapi==0.115.6
+uvicorn[standard]==0.32.1
+python-multipart==0.0.18
+pydantic==2.10.4
+pydantic-settings==2.7.0
+python-dotenv==1.0.1
+
+# LLM (Groq, OpenAI-compatible)
+groq==0.13.1
+
+# Document parsing
+pypdf==5.1.0
+
+# Embeddings + vector store + retrieval
+fastembed==0.4.2
+chromadb==0.5.23
+rank-bm25==0.2.2
+
+# Utilities
+tenacity==9.0.0
+PyYAML==6.0.2
