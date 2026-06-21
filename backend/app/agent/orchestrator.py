@@ -83,7 +83,7 @@ def answer_question(
     except Exception:
         verification = Verification(verified_answer=draft, verdict="unverified", grounded=False)
 
-    used = _used_citations(verification.verified_answer, all_citations)
+    used = _used_citations(verification.verified_answer, all_citations, verification.claims)
     return AgentResult(
         answer=verification.verified_answer.strip(),
         draft_answer=draft,
@@ -181,6 +181,13 @@ def _parse_query(arguments: str) -> Optional[str]:
         return None
 
 
-def _used_citations(text: str, citations: list[dict]) -> list[dict]:
+def _used_citations(text: str, citations: list[dict], claims=None) -> list[dict]:
     nums = {int(n) for n in re.findall(r"\[(\d+)\]", text)}
-    return [c for c in citations if c["n"] in nums]
+    for claim in claims or []:
+        nums.update(claim.citations)
+    selected = [c for c in citations if c["n"] in nums]
+    return selected or (citations if _has_grounding(claims) else [])
+
+
+def _has_grounding(claims) -> bool:
+    return any(c.status in {"supported", "conflict"} and c.citations for c in (claims or []))
