@@ -99,6 +99,8 @@ def verify_answer(question: str, draft: str, passages: list[dict]) -> Verificati
 def _derive_verdict(claims: list[ClaimCheck], conflicts: list[str], verified_answer: str) -> str:
     statuses = {c.status for c in claims}
     has_real_support = any(c.status == "supported" and c.citations for c in claims)
+    if _leads_with_refusal(verified_answer):
+        return "refused"
     if _looks_like_refusal(verified_answer) and not has_real_support:
         return "refused"
     if conflicts or "conflict" in statuses:
@@ -112,9 +114,38 @@ def _derive_verdict(claims: list[ClaimCheck], conflicts: list[str], verified_ans
     return "unsupported"
 
 
+_REFUSAL_PHRASES = (
+    "don't know",
+    "do not know",
+    "not in the",
+    "no information",
+    "not covered",
+    "not mention",
+    "doesn't mention",
+    "do not mention",
+    "don't mention",
+    "not specify",
+    "doesn't specify",
+    "do not contain",
+    "don't contain",
+    "doesn't contain",
+    "cannot find",
+    "can't find",
+    "not found in",
+    "isn't mentioned",
+    "is not mentioned",
+    "are not mentioned",
+)
+
+
 def _looks_like_refusal(text: str) -> bool:
     lowered = text.lower()
-    return "don't know" in lowered or "do not know" in lowered or "not in the" in lowered
+    return any(phrase in lowered for phrase in _REFUSAL_PHRASES)
+
+
+def _leads_with_refusal(text: str) -> bool:
+    head = text.strip().lower()[:90]
+    return any(phrase in head for phrase in _REFUSAL_PHRASES)
 
 
 def _render_passages(passages: list[dict]) -> str:
