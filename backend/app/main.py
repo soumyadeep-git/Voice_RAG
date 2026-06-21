@@ -5,18 +5,25 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import get_settings
-from app.embeddings.embedder import warm_up
-from app.routes import documents
+from app.embeddings.embedder import warm_up as warm_embedder
+from app.retrieval.rerank import warm_up as warm_reranker
+from app.routes import documents, search
 from app.store import vector_store
 from app.store.db import init_db
 
 settings = get_settings()
 
 
+def _warm_models() -> None:
+    warm_embedder()
+    if settings.enable_rerank:
+        warm_reranker()
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
-    threading.Thread(target=warm_up, daemon=True).start()
+    threading.Thread(target=_warm_models, daemon=True).start()
     yield
 
 
@@ -31,6 +38,7 @@ app.add_middleware(
 )
 
 app.include_router(documents.router)
+app.include_router(search.router)
 
 
 @app.get("/health")

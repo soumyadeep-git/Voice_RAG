@@ -3,6 +3,7 @@ import uuid
 from app.embeddings.embedder import embed_texts
 from app.ingestion.chunk import chunk_segments
 from app.ingestion.parse import parse_document
+from app.retrieval import state
 from app.store import repository, vector_store
 
 EMBED_BATCH = 64
@@ -54,6 +55,7 @@ def ingest_document(doc_id: str, raw: bytes, filename: str) -> None:
         repository.insert_chunks(rows)
         vector_store.add_chunks(ids, embeddings, texts, metadatas)
         repository.set_document_chunks(doc_id, len(chunks))
+        state.bump()
     except Exception as exc:
         repository.set_document_status(doc_id, "failed", str(exc)[:500])
 

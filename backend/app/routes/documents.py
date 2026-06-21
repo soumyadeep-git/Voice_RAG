@@ -5,6 +5,7 @@ from fastapi import APIRouter, BackgroundTasks, HTTPException, UploadFile
 from app.config import get_settings
 from app.ingestion.service import ingest_document, new_document_id
 from app.models import DocumentOut, UploadResult
+from app.retrieval import state
 from app.store import repository, vector_store
 
 router = APIRouter(prefix="/documents", tags=["documents"])
@@ -65,4 +66,5 @@ def delete_document(doc_id: str) -> dict:
         raise HTTPException(status_code=404, detail="Document not found")
     vector_store.delete_document(doc_id)
     repository.delete_document(doc_id)
+    state.bump()
     return {"deleted": doc_id}
