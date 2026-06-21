@@ -88,6 +88,29 @@ def complete_text(
     stop=stop_after_attempt(4),
     reraise=True,
 )
+def chat_json(
+    messages: list[dict],
+    model: Optional[str] = None,
+    temperature: float = 0.0,
+    max_tokens: int = 1024,
+) -> str:
+    settings = get_settings()
+    resp = _get_client().chat.completions.create(
+        model=model or settings.groq_answer_model,
+        messages=messages,
+        temperature=temperature,
+        max_tokens=max_tokens,
+        response_format={"type": "json_object"},
+    )
+    return resp.choices[0].message.content or "{}"
+
+
+@retry(
+    retry=retry_if_exception_type(_RETRYABLE),
+    wait=wait_exponential(multiplier=1, min=1, max=20),
+    stop=stop_after_attempt(4),
+    reraise=True,
+)
 def stream_chat(
     messages: list[dict],
     model: Optional[str] = None,

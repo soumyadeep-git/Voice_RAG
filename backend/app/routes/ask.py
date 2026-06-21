@@ -28,7 +28,9 @@ def ask(req: AskRequest) -> dict:
         raise HTTPException(status_code=503, detail=str(exc))
     return {
         "answer": result.answer,
+        "draft_answer": result.draft_answer,
         "rewritten_query": result.rewritten_query,
+        "verification": result.verification,
         "citations": result.citations,
         "tool_calls": result.tool_calls,
         "passages": result.passages,

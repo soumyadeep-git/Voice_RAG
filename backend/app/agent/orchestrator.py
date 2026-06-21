@@ -7,6 +7,7 @@ from groq import BadRequestError
 
 from app.agent.prompts import ANSWER_SYSTEM, REWRITE_SYSTEM
 from app.agent.tools import SEARCH_TOOL, CitationRegistry
+from app.agent.verify import Verification, verify_answer
 from app.config import get_settings
 from app.llm.groq_client import LLMUnavailableError, chat, complete_text
 from app.retrieval.service import retrieve
@@ -18,9 +19,11 @@ HISTORY_TURNS = 6
 @dataclass
 class AgentResult:
     answer: str
+    draft_answer: str
     rewritten_query: str
     passages: list[dict]
     citations: list[dict]
+    verification: dict
     tool_calls: list[dict] = field(default_factory=list)
 
 
@@ -56,13 +59,24 @@ def answer_question(question: str, history: Optional[list[dict]] = None) -> Agen
     except (BadRequestError, json.JSONDecodeError):
         final_text = _direct_answer(question, rewritten, history, registry, tool_log)
 
+    draft = final_text.strip()
     all_citations = registry.all()
-    used = _used_citations(final_text, all_citations)
+
+    try:
+        verification = verify_answer(question, draft, all_citations)
+    except LLMUnavailableError:
+        raise
+    except Exception:
+        verification = Verification(verified_answer=draft, verdict="unverified", grounded=False)
+
+    used = _used_citations(verification.verified_answer, all_citations)
     return AgentResult(
-        answer=final_text.strip(),
+        answer=verification.verified_answer.strip(),
+        draft_answer=draft,
         rewritten_query=rewritten,
         passages=all_citations,
         citations=used,
+        verification=verification.to_dict(),
         tool_calls=tool_log,
     )
 
