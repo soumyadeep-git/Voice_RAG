@@ -27,12 +27,20 @@ class AgentResult:
     tool_calls: list[dict] = field(default_factory=list)
 
 
-def rewrite_query(question: str, history: Optional[list[dict]] = None) -> str:
+def rewrite_query(
+    question: str, history: Optional[list[dict]] = None, summary: str = ""
+) -> str:
     history = history or []
-    if not history:
+    if not history and not summary:
         return question.strip()
-    context = "\n".join(f"{t['role']}: {t['content']}" for t in history[-HISTORY_TURNS:])
-    user = f"Conversation so far:\n{context}\n\nLatest question: {question}\n\nStandalone search query:"
+    context_parts = []
+    if summary:
+        context_parts.append(f"Summary of earlier conversation:\n{summary}")
+    if history:
+        turns = "\n".join(f"{t['role']}: {t['content']}" for t in history[-HISTORY_TURNS:])
+        context_parts.append(f"Recent turns:\n{turns}")
+    context = "\n\n".join(context_parts)
+    user = f"{context}\n\nLatest question: {question}\n\nStandalone search query:"
     settings = get_settings()
     try:
         rewritten = complete_text(REWRITE_SYSTEM, user, model=settings.groq_fast_model)
@@ -41,13 +49,19 @@ def rewrite_query(question: str, history: Optional[list[dict]] = None) -> str:
     return rewritten.splitlines()[0].strip() if rewritten else question.strip()
 
 
-def answer_question(question: str, history: Optional[list[dict]] = None) -> AgentResult:
+def answer_question(
+    question: str, history: Optional[list[dict]] = None, summary: str = ""
+) -> AgentResult:
     history = history or []
-    rewritten = rewrite_query(question, history)
+    rewritten = rewrite_query(question, history, summary)
     registry = CitationRegistry()
     tool_log: list[dict] = []
 
     messages: list[dict] = [{"role": "system", "content": ANSWER_SYSTEM}]
+    if summary:
+        messages.append(
+            {"role": "system", "content": f"Summary of earlier conversation: {summary}"}
+        )
     for turn in history[-HISTORY_TURNS:]:
         messages.append({"role": turn["role"], "content": turn["content"]})
     messages.append(

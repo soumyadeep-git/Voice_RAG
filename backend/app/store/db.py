@@ -36,7 +36,8 @@ CREATE INDEX IF NOT EXISTS idx_chunks_document ON chunks(document_id);
 CREATE TABLE IF NOT EXISTS conversations (
     id TEXT PRIMARY KEY,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
-    summary TEXT DEFAULT ''
+    summary TEXT DEFAULT '',
+    summary_count INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS messages (
@@ -84,4 +85,13 @@ def transaction() -> Iterator[sqlite3.Connection]:
 def init_db() -> None:
     conn = get_connection()
     conn.executescript(SCHEMA)
+    _migrate(conn)
     conn.commit()
+
+
+def _migrate(conn: sqlite3.Connection) -> None:
+    columns = {row["name"] for row in conn.execute("PRAGMA table_info(conversations)")}
+    if "summary_count" not in columns:
+        conn.execute(
+            "ALTER TABLE conversations ADD COLUMN summary_count INTEGER NOT NULL DEFAULT 0"
+        )
