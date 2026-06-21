@@ -4,7 +4,7 @@ from typing import Optional
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
-from app.agent import memory
+from app.agent import guards, memory
 from app.agent.orchestrator import answer_question
 from app.llm.groq_client import LLMUnavailableError
 
@@ -55,8 +55,12 @@ async def _handle_ask(websocket: WebSocket, msg: dict, interrupt: asyncio.Event)
     conv_id = memory.ensure_conversation(msg.get("conversation_id"))
     await _safe_send(websocket, {"type": "conversation", "conversation_id": conv_id})
 
-    if not question:
-        await _safe_send(websocket, {"type": "error", "message": "Empty question"})
+    if not guards.is_meaningful(question):
+        await _safe_send(websocket, {"type": "notice", "message": guards.NO_SPEECH_MESSAGE})
+        await _safe_send(websocket, {"type": "status", "stage": "idle"})
+        return
+    if not guards.has_documents():
+        await _send_simple(websocket, conv_id, question, guards.NO_DOCUMENTS_MESSAGE, "no_documents")
         return
 
     await _safe_send(websocket, {"type": "status", "stage": "thinking"})
@@ -108,6 +112,32 @@ async def _handle_ask(websocket: WebSocket, msg: dict, interrupt: asyncio.Event)
             "passages": result.passages,
             "tool_calls": result.tool_calls,
             "interrupted": interrupted,
+        },
+    )
+
+
+async def _send_simple(
+    websocket: WebSocket, conv_id: str, question: str, message: str, verdict: str
+) -> None:
+    await _safe_send(websocket, {"type": "status", "stage": "answering"})
+    await _safe_send(websocket, {"type": "answer_chunk", "text": message})
+    memory.record_turn(conv_id, question, message, [])
+    await _safe_send(
+        websocket,
+        {
+            "type": "answer_complete",
+            "answer": message,
+            "verification": {
+                "verified_answer": message,
+                "verdict": verdict,
+                "grounded": False,
+                "claims": [],
+                "conflicts": [],
+            },
+            "citations": [],
+            "passages": [],
+            "tool_calls": [],
+            "interrupted": False,
         },
     )
 

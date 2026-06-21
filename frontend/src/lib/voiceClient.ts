@@ -5,6 +5,8 @@ export class VoiceClient {
   private onEvent: (e: ServerEvent) => void
   private onOpen?: () => void
   private onClose?: () => void
+  private closedByUser = false
+  private retryDelay = 1000
 
   constructor(onEvent: (e: ServerEvent) => void, onOpen?: () => void, onClose?: () => void) {
     this.onEvent = onEvent
@@ -15,8 +17,18 @@ export class VoiceClient {
   connect() {
     const proto = window.location.protocol === 'https:' ? 'wss' : 'ws'
     this.ws = new WebSocket(`${proto}://${window.location.host}/ws`)
-    this.ws.onopen = () => this.onOpen?.()
-    this.ws.onclose = () => this.onClose?.()
+    this.ws.onopen = () => {
+      this.retryDelay = 1000
+      this.onOpen?.()
+    }
+    this.ws.onclose = () => {
+      this.onClose?.()
+      if (!this.closedByUser) {
+        setTimeout(() => this.connect(), this.retryDelay)
+        this.retryDelay = Math.min(this.retryDelay * 2, 10000)
+      }
+    }
+    this.ws.onerror = () => this.ws?.close()
     this.ws.onmessage = (ev) => {
       try {
         this.onEvent(JSON.parse(ev.data))
@@ -45,6 +57,7 @@ export class VoiceClient {
   }
 
   close() {
+    this.closedByUser = true
     this.ws?.close()
   }
 }

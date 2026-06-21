@@ -46,6 +46,10 @@ export default function App() {
       case 'interrupted':
         setStage('idle')
         break
+      case 'notice':
+        setError(ev.message)
+        setStage('idle')
+        break
       case 'error':
         setError(ev.message)
         setStage('idle')
@@ -77,7 +81,7 @@ export default function App() {
   }
 
   const submitQuestion = useCallback((text: string) => {
-    if (!text.trim()) return
+    if (text.replace(/[^a-zA-Z0-9]/g, '').length < 2) return
     setError(null)
     setPartial('')
     answerRef.current = ''

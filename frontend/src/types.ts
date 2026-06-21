@@ -52,4 +52,5 @@ export type ServerEvent =
       interrupted: boolean
     }
   | { type: 'interrupted' }
+  | { type: 'notice'; message: string }
   | { type: 'error'; message: string }

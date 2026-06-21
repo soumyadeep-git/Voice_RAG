@@ -112,6 +112,14 @@ def get_messages(conv_id: str, limit: Optional[int] = None, offset: int = 0) -> 
     return [dict(r) for r in rows]
 
 
+def count_ready_documents() -> int:
+    conn = get_connection()
+    row = conn.execute(
+        "SELECT COUNT(*) AS n FROM documents WHERE status = 'ready'"
+    ).fetchone()
+    return int(row["n"]) if row else 0
+
+
 def count_messages(conv_id: str) -> int:
     conn = get_connection()
     row = conn.execute(
