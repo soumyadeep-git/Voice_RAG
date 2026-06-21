@@ -1,7 +1,10 @@
+import os
 from functools import lru_cache
 from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
 
 BACKEND_ROOT = Path(__file__).resolve().parent.parent
 
