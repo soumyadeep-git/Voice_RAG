@@ -16,7 +16,7 @@ from app.config import get_settings  # noqa: E402
 
 EVAL_DIR = Path(__file__).resolve().parent
 REPO_ROOT = EVAL_DIR.parents[1]
-SAMPLE_DIR = REPO_ROOT / "sample_docs"
+SAMPLE_DIR = EVAL_DIR / "fixtures"
 REPORT_PATH = EVAL_DIR / "REPORT.md"
 PAUSE_SECONDS = 2.0
 
