@@ -61,6 +61,12 @@ def run() -> None:
 
     qa = yaml.safe_load((EVAL_DIR / "qa_pairs.yaml").read_text())
 
+    # Optional subset, e.g. EVAL_IDS=q8,q9 to run only the conflict questions
+    # (useful for confirming 70B conflict detection within a small token budget).
+    only = {i.strip() for i in os.environ.get("EVAL_IDS", "").split(",") if i.strip()}
+    if only:
+        qa = [item for item in qa if item["id"] in only]
+
     rows = []
     retrieval_total = retrieval_hits = 0
     grounded_total = grounded_ok = 0
@@ -133,8 +139,9 @@ def run() -> None:
         conflict_total,
     )
     print("\n" + report)
-    REPORT_PATH.write_text(report)
-    print(f"\nReport written to {REPORT_PATH.relative_to(REPO_ROOT)}")
+    report_path = EVAL_DIR / "REPORT_subset.md" if only else REPORT_PATH
+    report_path.write_text(report)
+    print(f"\nReport written to {report_path.relative_to(REPO_ROOT)}")
 
 
 def _pct(num: int, den: int) -> str:
