@@ -1,10 +1,12 @@
 # Evaluation Report
 
+Pipeline model: `llama-3.1-8b-instant` · corpus: `backend/eval/fixtures/`
+
 ## Metrics
 
-- Retrieval hit-rate: 100% (7/7)
-- Answer groundedness: 100% (7/7)
-- Refusal accuracy: 50% (1/2)
+- Retrieval hit-rate: 89% (8/9)
+- Answer groundedness: 89% (8/9)
+- Refusal accuracy: 100% (2/2)
 - Conflict detection: 0% (0/2)
 
 ## Per-question results
@@ -13,16 +15,18 @@
 | --- | --- | --- | --- | --- |
 | q1 | answerable | grounded | hit | ok |
 | q2 | answerable | grounded | hit | ok |
-| q3 | answerable | grounded | hit | ok |
-| q4 | answerable | partially_grounded | hit | ok |
+| q3 | answerable | partially_grounded | hit | ok |
+| q4 | answerable | conflict | hit | ok |
 | q5 | answerable | grounded | hit | ok |
-| q6 | conflict | grounded | hit | ok |
-| q7 | conflict | grounded | hit | ok |
-| q8 | unanswerable | grounded | - | ok |
-| q9 | unanswerable | refused | - | ok |
+| q6 | answerable | partially_grounded | hit | ok |
+| q7 | answerable | partially_grounded | MISS | ok |
+| q8 | conflict | grounded | hit | ok |
+| q9 | conflict | refused | hit | MISS |
+| q10 | unanswerable | refused | - | ok |
+| q11 | unanswerable | refused | - | ok |
 
 ## Failures / weaknesses
 
-- [q6] conflict: verdict=grounded — The laws use both opt-in and opt-out models for using personal data. The CCPA operates on an opt-out model, where a busi
-- [q7] conflict: verdict=grounded — The penalties for violations under the CCPA can be up to 2,500 US dollars for each unintentional violation and up to 7,5
-- [q8] unanswerable: verdict=grounded — I don't know what India's data protection law is called based on the uploaded documents. These passages discuss the Gene
+- [q7] answerable: verdict=partially_grounded — The CCPA allows consumers to recover statutory damages of between 100 and 750 US dollars per consumer per incident for u
+- [q8] conflict: verdict=grounded — A business must handle at least 100,000 consumers or households annually to fall under the CCPA, according to passage [2
+- [q9] conflict: verdict=refused — We don't know the current consumer-count threshold for covered businesses under the CCPA, as the documents disagree.

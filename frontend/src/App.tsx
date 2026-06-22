@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
 import './App.css'
 import { ConversationView } from './components/ConversationView'
 import { SourcePanel } from './components/SourcePanel'
@@ -135,7 +136,10 @@ export default function App() {
   return (
     <div className="app">
       <header className="app-header">
-        <h1>Ask My Notes</h1>
+        <Link to="/" className="app-brand">
+          <span className="mark" />
+          ASK_MY_NOTES
+        </Link>
         <span className={`conn ${connected ? 'ok' : 'off'}`}>
           {connected ? 'connected' : 'connecting…'}
         </span>

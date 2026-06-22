@@ -10,13 +10,19 @@ os.environ["CHROMA_DIR"] = "storage/eval_chroma"
 os.environ["SQLITE_PATH"] = "storage/eval.sqlite"
 os.environ["DATA_DIR"] = "storage/eval_data"
 
+# The eval makes many LLM calls; the free-tier 70B model has a small daily token
+# budget, so the harness runs on the lighter "instant" model (much larger cap).
+# Production answers still use the 70B model configured in .env.
+EVAL_MODEL = os.environ.get("EVAL_MODEL", "llama-3.1-8b-instant")
+os.environ["GROQ_ANSWER_MODEL"] = EVAL_MODEL
+
 import yaml  # noqa: E402
 
 from app.config import get_settings  # noqa: E402
 
 EVAL_DIR = Path(__file__).resolve().parent
 REPO_ROOT = EVAL_DIR.parents[1]
-SAMPLE_DIR = REPO_ROOT / "sample_docs"
+SAMPLE_DIR = EVAL_DIR / "fixtures"
 REPORT_PATH = EVAL_DIR / "REPORT.md"
 PAUSE_SECONDS = 2.0
 
@@ -54,6 +60,12 @@ def run() -> None:
     from app.retrieval.service import retrieve
 
     qa = yaml.safe_load((EVAL_DIR / "qa_pairs.yaml").read_text())
+
+    # Optional subset, e.g. EVAL_IDS=q8,q9 to run only the conflict questions
+    # (useful for confirming 70B conflict detection within a small token budget).
+    only = {i.strip() for i in os.environ.get("EVAL_IDS", "").split(",") if i.strip()}
+    if only:
+        qa = [item for item in qa if item["id"] in only]
 
     rows = []
     retrieval_total = retrieval_hits = 0
@@ -127,8 +139,9 @@ def run() -> None:
         conflict_total,
     )
     print("\n" + report)
-    REPORT_PATH.write_text(report)
-    print(f"\nReport written to {REPORT_PATH.relative_to(REPO_ROOT)}")
+    report_path = EVAL_DIR / "REPORT_subset.md" if only else REPORT_PATH
+    report_path.write_text(report)
+    print(f"\nReport written to {report_path.relative_to(REPO_ROOT)}")
 
 
 def _pct(num: int, den: int) -> str:
@@ -146,7 +159,7 @@ def _format_report(
     c_ok,
     c_total,
 ) -> str:
-    lines = ["# Evaluation Report", "", "## Metrics", ""]
+    lines = ["# Evaluation Report", "", f"Pipeline model: `{EVAL_MODEL}` · corpus: `backend/eval/fixtures/`", "", "## Metrics", ""]
     lines.append(f"- Retrieval hit-rate: {_pct(r_hits, r_total)}")
     lines.append(f"- Answer groundedness: {_pct(g_ok, g_total)}")
     lines.append(f"- Refusal accuracy: {_pct(ref_ok, ref_total)}")
