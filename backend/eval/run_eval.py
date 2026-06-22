@@ -10,6 +10,12 @@ os.environ["CHROMA_DIR"] = "storage/eval_chroma"
 os.environ["SQLITE_PATH"] = "storage/eval.sqlite"
 os.environ["DATA_DIR"] = "storage/eval_data"
 
+# The eval makes many LLM calls; the free-tier 70B model has a small daily token
+# budget, so the harness runs on the lighter "instant" model (much larger cap).
+# Production answers still use the 70B model configured in .env.
+EVAL_MODEL = os.environ.get("EVAL_MODEL", "llama-3.1-8b-instant")
+os.environ["GROQ_ANSWER_MODEL"] = EVAL_MODEL
+
 import yaml  # noqa: E402
 
 from app.config import get_settings  # noqa: E402
@@ -146,7 +152,7 @@ def _format_report(
     c_ok,
     c_total,
 ) -> str:
-    lines = ["# Evaluation Report", "", "## Metrics", ""]
+    lines = ["# Evaluation Report", "", f"Pipeline model: `{EVAL_MODEL}` · corpus: `backend/eval/fixtures/`", "", "## Metrics", ""]
     lines.append(f"- Retrieval hit-rate: {_pct(r_hits, r_total)}")
     lines.append(f"- Answer groundedness: {_pct(g_ok, g_total)}")
     lines.append(f"- Refusal accuracy: {_pct(ref_ok, ref_total)}")
