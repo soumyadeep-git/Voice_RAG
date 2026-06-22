@@ -6,7 +6,7 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 from app.agent import guards, memory
 from app.agent.orchestrator import answer_question
-from app.llm.groq_client import LLMUnavailableError
+from app.llm.llm_client import LLMUnavailableError
 
 router = APIRouter(tags=["voice"])
 

@@ -3,13 +3,13 @@ import re
 from dataclasses import dataclass, field
 from typing import Optional
 
-from groq import BadRequestError
+from openai import BadRequestError
 
 from app.agent.prompts import ANSWER_SYSTEM, REWRITE_SYSTEM
 from app.agent.tools import SEARCH_TOOL, CitationRegistry
 from app.agent.verify import Verification, verify_answer
 from app.config import get_settings
-from app.llm.groq_client import LLMUnavailableError, chat, complete_text
+from app.llm.llm_client import LLMUnavailableError, chat, complete_text
 from app.retrieval.service import retrieve
 
 MAX_TOOL_ITERS = 3
@@ -43,7 +43,7 @@ def rewrite_query(
     user = f"{context}\n\nLatest question: {question}\n\nStandalone search query:"
     settings = get_settings()
     try:
-        rewritten = complete_text(REWRITE_SYSTEM, user, model=settings.groq_fast_model)
+        rewritten = complete_text(REWRITE_SYSTEM, user, model=settings.fast_model)
     except Exception:
         return question.strip()
     return rewritten.splitlines()[0].strip() if rewritten else question.strip()
