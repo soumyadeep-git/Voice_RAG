@@ -1,16 +1,33 @@
 import json
 import re
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import Callable, Optional
 
-from groq import BadRequestError
+StageCallback = Callable[[str], None]
+
+
+def _emit(on_stage: Optional[StageCallback], stage: str) -> None:
+    if on_stage is None:
+        return
+    try:
+        on_stage(stage)
+    except Exception:
+        pass
+
+from openai import BadRequestError
 
 from app.agent.prompts import ANSWER_SYSTEM, REWRITE_SYSTEM
-from app.agent.tools import SEARCH_TOOL, CitationRegistry
+from app.agent.tools import (
+    LIST_DOCUMENTS_TOOL,
+    SEARCH_TOOL,
+    CitationRegistry,
+    format_document_list,
+)
 from app.agent.verify import Verification, verify_answer
 from app.config import get_settings
-from app.llm.groq_client import LLMUnavailableError, chat, complete_text
+from app.llm.llm_client import LLMUnavailableError, chat, complete_text
 from app.retrieval.service import retrieve
+from app.store import repository
 
 MAX_TOOL_ITERS = 3
 HISTORY_TURNS = 6
@@ -43,16 +60,20 @@ def rewrite_query(
     user = f"{context}\n\nLatest question: {question}\n\nStandalone search query:"
     settings = get_settings()
     try:
-        rewritten = complete_text(REWRITE_SYSTEM, user, model=settings.groq_fast_model)
+        rewritten = complete_text(REWRITE_SYSTEM, user, model=settings.fast_model)
     except Exception:
         return question.strip()
     return rewritten.splitlines()[0].strip() if rewritten else question.strip()
 
 
 def answer_question(
-    question: str, history: Optional[list[dict]] = None, summary: str = ""
+    question: str,
+    history: Optional[list[dict]] = None,
+    summary: str = "",
+    on_stage: Optional[StageCallback] = None,
 ) -> AgentResult:
     history = history or []
+    _emit(on_stage, "rewriting")
     rewritten = rewrite_query(question, history, summary)
     registry = CitationRegistry()
     tool_log: list[dict] = []
@@ -68,20 +89,30 @@ def answer_question(
         {"role": "user", "content": f"{question}\n\n(suggested search query: {rewritten})"}
     )
 
+    _emit(on_stage, "searching")
     try:
-        final_text = _agentic_loop(messages, registry, tool_log, rewritten)
+        final_text = _agentic_loop(messages, registry, tool_log, rewritten, on_stage)
     except (BadRequestError, json.JSONDecodeError):
         final_text = _direct_answer(question, rewritten, history, registry, tool_log)
 
     draft = final_text.strip()
     all_citations = registry.all()
 
-    try:
-        verification = verify_answer(question, draft, all_citations)
-    except LLMUnavailableError:
-        raise
-    except Exception:
-        verification = Verification(verified_answer=draft, verdict="unverified", grounded=False)
+    used_list_tool = any(t.get("tool") == "list_documents" for t in tool_log)
+    if used_list_tool and not all_citations:
+        # Metadata answer drawn from the document registry, not passage content:
+        # there is nothing to ground-check, so skip the verifier and label it.
+        verification = Verification(verified_answer=draft, verdict="info", grounded=True)
+    else:
+        _emit(on_stage, "verifying")
+        try:
+            verification = verify_answer(question, draft, all_citations)
+        except LLMUnavailableError:
+            raise
+        except Exception:
+            verification = Verification(
+                verified_answer=draft, verdict="unverified", grounded=False
+            )
 
     used = _used_citations(verification.verified_answer, all_citations, verification.claims)
     return AgentResult(
@@ -96,10 +127,19 @@ def answer_question(
 
 
 def _agentic_loop(
-    messages: list[dict], registry: CitationRegistry, tool_log: list[dict], rewritten: str
+    messages: list[dict],
+    registry: CitationRegistry,
+    tool_log: list[dict],
+    rewritten: str,
+    on_stage: Optional[StageCallback] = None,
 ) -> str:
     for _ in range(MAX_TOOL_ITERS):
-        response = chat(messages, tools=[SEARCH_TOOL], tool_choice="auto", temperature=0.2)
+        response = chat(
+            messages,
+            tools=[SEARCH_TOOL, LIST_DOCUMENTS_TOOL],
+            tool_choice="auto",
+            temperature=0.2,
+        )
         message = response.choices[0].message
 
         if not message.tool_calls:
@@ -120,6 +160,18 @@ def _agentic_loop(
             }
         )
         for tc in message.tool_calls:
+            if tc.function.name == "list_documents":
+                docs = repository.list_documents()
+                tool_log.append({"tool": "list_documents", "results": len(docs)})
+                messages.append(
+                    {
+                        "role": "tool",
+                        "tool_call_id": tc.id,
+                        "content": format_document_list(docs),
+                    }
+                )
+                continue
+            _emit(on_stage, "reading")
             query = _parse_query(tc.function.arguments) or rewritten
             passages = retrieve(query)
             tool_log.append({"query": query, "results": len(passages)})

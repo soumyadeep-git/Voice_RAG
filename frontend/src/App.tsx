@@ -9,6 +9,26 @@ import { SpeechController, speechSupported } from './lib/speech'
 import { VoiceClient } from './lib/voiceClient'
 import type { Message, Passage, ServerEvent } from './types'
 
+async function transcribeAudio(audio: Blob): Promise<string> {
+  const form = new FormData()
+  form.append('audio', audio, 'utterance.webm')
+  const res = await fetch('/transcribe', { method: 'POST', body: form })
+  if (!res.ok) throw new Error(`transcribe failed: ${res.status}`)
+  const data = (await res.json()) as { text?: string }
+  return data.text ?? ''
+}
+
+async function synthesizeSpeech(text: string, signal: AbortSignal): Promise<Blob> {
+  const res = await fetch('/tts', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text }),
+    signal,
+  })
+  if (!res.ok) throw new Error(`tts failed: ${res.status}`)
+  return res.blob()
+}
+
 export default function App() {
   const [messages, setMessages] = useState<Message[]>([])
   const [partial, setPartial] = useState('')
@@ -35,8 +55,11 @@ export default function App() {
         break
       case 'answer_chunk':
         answerRef.current = `${answerRef.current} ${ev.text}`.trim()
-        speechRef.current?.speak(ev.text)
         updateAssistant(answerRef.current, undefined, undefined)
+        // Speak each sentence as it arrives so audio starts right away and
+        // stays in step with the text, instead of waiting for the full answer
+        // to be synthesized after it has already appeared on screen.
+        speechRef.current?.speak(ev.text)
         break
       case 'answer_complete':
         updateAssistant(ev.answer, ev.citations, ev.verification)
@@ -86,6 +109,9 @@ export default function App() {
     setError(null)
     setPartial('')
     answerRef.current = ''
+    // Show the working indicator immediately rather than waiting for the first
+    // status to round-trip from the backend.
+    setStage('thinking')
     setMessages((prev) => [...prev, { role: 'user', content: text }])
     clientRef.current?.ask(text, convRef.current)
   }, [])
@@ -99,23 +125,27 @@ export default function App() {
     client.connect()
     clientRef.current = client
 
-    const speech = new SpeechController({
-      onPartial: (t) => setPartial(t),
-      onFinal: (t) => {
-        setPartial('')
-        submitQuestion(t)
+    const speech = new SpeechController(
+      {
+        onPartial: (t) => setPartial(t),
+        onFinal: (t) => {
+          setPartial('')
+          submitQuestion(t)
+        },
+        onSpeechStart: () => {
+          if (speechRef.current?.isSpeaking()) {
+            speechRef.current.cancelSpeech()
+            clientRef.current?.interrupt()
+            setStage('idle')
+          }
+        },
+        onListeningChange: setListening,
+        onSpeakingChange: setSpeaking,
+        onError: (e) => setError(`Mic: ${e}`),
       },
-      onSpeechStart: () => {
-        if (speechRef.current?.isSpeaking()) {
-          speechRef.current.cancelSpeech()
-          clientRef.current?.interrupt()
-          setStage('idle')
-        }
-      },
-      onListeningChange: setListening,
-      onSpeakingChange: setSpeaking,
-      onError: (e) => setError(`Mic: ${e}`),
-    })
+      transcribeAudio,
+      synthesizeSpeech,
+    )
     speechRef.current = speech
 
     return () => {
@@ -129,8 +159,17 @@ export default function App() {
   const toggleMic = () => {
     const speech = speechRef.current
     if (!speech) return
-    if (listening) speech.stopListening()
-    else speech.startListening()
+    if (listening) {
+      speech.stopListening()
+    } else {
+      // Tapping the mic while the assistant is talking interrupts it.
+      if (speech.isSpeaking()) {
+        speech.cancelSpeech()
+        clientRef.current?.interrupt()
+        setStage('idle')
+      }
+      speech.startListening()
+    }
   }
 
   return (
@@ -149,7 +188,7 @@ export default function App() {
           <UploadPanel />
         </aside>
         <main className="center">
-          <ConversationView messages={messages} partial={partial} />
+          <ConversationView messages={messages} partial={partial} stage={stage} />
           {error && <p className="error banner">{error}</p>}
           <VoiceConsole
             listening={listening}

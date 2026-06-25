@@ -3,7 +3,7 @@ import uuid
 from typing import Optional
 
 from app.config import get_settings
-from app.llm.groq_client import complete_text
+from app.llm.llm_client import complete_text
 from app.store import repository
 
 KEEP_LAST = 8
@@ -54,7 +54,7 @@ def _maybe_summarize(conv_id: str) -> None:
     user = f"Previous summary:\n{summary or '(none)'}\n\nNew messages:\n{folded}\n\nUpdated summary:"
     try:
         new_summary = complete_text(
-            SUMMARY_SYSTEM, user, model=get_settings().groq_fast_model, max_tokens=220
+            SUMMARY_SYSTEM, user, model=get_settings().fast_model, max_tokens=220
         )
     except Exception:
         new_summary = summary

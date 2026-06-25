@@ -1,11 +1,18 @@
+"""Provider-agnostic LLM client over the OpenAI-compatible chat API.
+
+Any OpenAI-compatible endpoint works (Cerebras, Groq, OpenRouter, Together,
+local Ollama, ...) by setting LLM_BASE_URL + LLM_API_KEY in the environment.
+The rest of the app only depends on the functions below, not the provider.
+"""
+
 import threading
 from typing import Iterator, Optional
 
-from groq import (
+from openai import (
     APIConnectionError,
     APITimeoutError,
-    Groq,
     InternalServerError,
+    OpenAI,
     RateLimitError,
 )
 from tenacity import (
@@ -17,7 +24,7 @@ from tenacity import (
 
 from app.config import get_settings
 
-_client: Optional[Groq] = None
+_client: Optional[OpenAI] = None
 _lock = threading.Lock()
 
 _RETRYABLE = (RateLimitError, APIConnectionError, APITimeoutError, InternalServerError)
@@ -27,15 +34,19 @@ class LLMUnavailableError(RuntimeError):
     pass
 
 
-def _get_client() -> Groq:
+def _get_client() -> OpenAI:
     global _client
     if _client is None:
         with _lock:
             if _client is None:
                 settings = get_settings()
-                if not settings.groq_api_key:
-                    raise LLMUnavailableError("GROQ_API_KEY is not configured")
-                _client = Groq(api_key=settings.groq_api_key, timeout=30.0)
+                if not settings.llm_api_key:
+                    raise LLMUnavailableError("LLM_API_KEY is not configured")
+                _client = OpenAI(
+                    base_url=settings.llm_base_url,
+                    api_key=settings.llm_api_key,
+                    timeout=30.0,
+                )
     return _client
 
 
@@ -55,7 +66,7 @@ def chat(
 ):
     settings = get_settings()
     kwargs: dict = {
-        "model": model or settings.groq_answer_model,
+        "model": model or settings.answer_model,
         "messages": messages,
         "temperature": temperature,
         "max_tokens": max_tokens,
@@ -96,7 +107,7 @@ def chat_json(
 ) -> str:
     settings = get_settings()
     resp = _get_client().chat.completions.create(
-        model=model or settings.groq_answer_model,
+        model=model or settings.answer_model,
         messages=messages,
         temperature=temperature,
         max_tokens=max_tokens,
@@ -119,7 +130,7 @@ def stream_chat(
 ) -> Iterator[str]:
     settings = get_settings()
     stream = _get_client().chat.completions.create(
-        model=model or settings.groq_answer_model,
+        model=model or settings.answer_model,
         messages=messages,
         temperature=temperature,
         max_tokens=max_tokens,

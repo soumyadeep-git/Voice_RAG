@@ -11,6 +11,8 @@ export default defineConfig({
       '/ask': backend,
       '/search': backend,
       '/conversations': backend,
+      '/transcribe': backend,
+      '/tts': backend,
       '/health': backend,
       '/ws': { target: backend, ws: true },
     },

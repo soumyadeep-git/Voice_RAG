@@ -206,6 +206,49 @@ body {
   margin: 0;
 }
 
+.bubble.thinking,
+.bubble.listening {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+.thinking-label {
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 13px;
+  letter-spacing: 0.02em;
+}
+.thinking-dots {
+  display: inline-flex;
+  gap: 4px;
+}
+.thinking-dots span {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  opacity: 0.4;
+  animation: thinking-bounce 1.2s infinite ease-in-out;
+}
+.thinking-dots span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+.thinking-dots span:nth-child(3) {
+  animation-delay: 0.4s;
+}
+@keyframes thinking-bounce {
+  0%,
+  60%,
+  100% {
+    opacity: 0.35;
+    transform: translateY(0);
+  }
+  30% {
+    opacity: 1;
+    transform: translateY(-3px);
+  }
+}
+
 .cite {
   color: var(--accent);
   font-weight: 700;
@@ -213,8 +256,33 @@ body {
   margin: 0 1px;
 }
 
-.verdict {
+.sources-line {
   margin-top: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--mono);
+  font-size: 11px;
+}
+.sources-label {
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 600;
+}
+.source-chip {
+  background: rgba(62, 166, 107, 0.12);
+  color: var(--accent-2);
+  border: 1px solid rgba(62, 166, 107, 0.25);
+  padding: 3px 8px;
+  border-radius: 6px;
+}
+.conflict-flag {
+  margin-top: 10px;
+}
+.conflict-tag {
+  display: inline-block;
   font-family: var(--mono);
   font-size: 11px;
   font-weight: 600;
@@ -222,22 +290,8 @@ body {
   text-transform: uppercase;
   padding: 4px 10px;
   border-radius: 8px;
-  display: inline-block;
-}
-.verdict-grounded {
-  background: rgba(62, 166, 107, 0.15);
-  color: var(--accent-2);
-}
-.verdict-partially_grounded,
-.verdict-conflict {
   background: rgba(217, 164, 65, 0.16);
   color: var(--warn);
-}
-.verdict-refused,
-.verdict-unsupported,
-.verdict-unverified {
-  background: rgba(144, 138, 134, 0.15);
-  color: var(--muted);
 }
 .conflict-list {
   margin: 8px 0 0;

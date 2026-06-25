@@ -8,7 +8,7 @@ from fastapi.responses import JSONResponse
 from app.config import get_settings
 from app.embeddings.embedder import warm_up as warm_embedder
 from app.retrieval.rerank import warm_up as warm_reranker
-from app.routes import ask, conversations, documents, search, voice_ws
+from app.routes import ask, conversations, documents, search, transcribe, tts, voice_ws
 from app.store import vector_store
 from app.store.db import init_db
 
@@ -47,6 +47,8 @@ app.include_router(documents.router)
 app.include_router(search.router)
 app.include_router(ask.router)
 app.include_router(conversations.router)
+app.include_router(transcribe.router)
+app.include_router(tts.router)
 app.include_router(voice_ws.router)
 
 
@@ -54,8 +56,9 @@ app.include_router(voice_ws.router)
 def health() -> dict:
     return {
         "status": "ok",
-        "answer_model": settings.groq_answer_model,
+        "provider": settings.llm_provider,
+        "answer_model": settings.answer_model,
         "embed_model": settings.embed_model,
-        "groq_key_present": bool(settings.groq_api_key),
+        "llm_key_present": bool(settings.llm_api_key),
         "indexed_chunks": vector_store.count(),
     }

@@ -3,7 +3,7 @@ from dataclasses import asdict, dataclass, field
 from typing import Optional
 
 from app.agent.tools import format_location
-from app.llm.groq_client import chat_json
+from app.llm.llm_client import chat_json
 
 VERIFY_SYSTEM = """You are a strict grounding verifier for a document Q&A assistant.
 You receive a question, a draft answer, and numbered source passages.

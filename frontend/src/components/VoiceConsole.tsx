@@ -8,7 +8,11 @@ interface Props {
 
 const STAGE_LABEL: Record<string, string> = {
   idle: 'Ready',
-  thinking: 'Searching & verifying…',
+  thinking: 'Thinking…',
+  rewriting: 'Understanding your question…',
+  searching: 'Searching the documents…',
+  reading: 'Reading the sources…',
+  verifying: 'Checking the answer…',
   answering: 'Answering…',
 }
 
