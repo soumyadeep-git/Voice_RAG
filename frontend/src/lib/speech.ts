@@ -107,7 +107,6 @@ export class SpeechController {
       }
       if (combined) {
         this.handlers.onPartial?.(combined)
-        this.startRecording()
       }
 
       // Reset the silence timer on every new bit of speech. When the speaker
@@ -171,6 +170,8 @@ export class SpeechController {
         this.chunks = []
         this.recorder = null
         this.recording = false
+        // Release the mic now that the turn's audio is captured.
+        this.releaseStream()
         let text = browserText
         try {
           const transcript = (await this.transcriber!(blob)).trim()
@@ -208,7 +209,7 @@ export class SpeechController {
     if (!this.transcriber || !this.mediaStream || this.recording) return
     try {
       this.chunks = []
-      this.recorder = new MediaRecorder(this.mediaStream)
+      this.recorder = new MediaRecorder(this.mediaStream, { audioBitsPerSecond: 128000 })
       this.recorder.ondataavailable = (e) => {
         if (e.data.size) this.chunks.push(e.data)
       }
@@ -232,6 +233,14 @@ export class SpeechController {
     this.recorder = null
     this.chunks = []
     this.recording = false
+    this.releaseStream()
+  }
+
+  private releaseStream() {
+    if (this.mediaStream) {
+      this.mediaStream.getTracks().forEach((t) => t.stop())
+      this.mediaStream = null
+    }
   }
 
   async startListening() {
@@ -239,13 +248,27 @@ export class SpeechController {
     this.wantListening = true
     this.finalText = ''
     this.latestCombined = ''
-    if (this.transcriber && !this.mediaStream) {
-      try {
-        this.mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true })
-      } catch {
-        // No mic access for recording; fall back to browser-only transcript.
-        this.mediaStream = null
+    if (this.transcriber) {
+      if (!this.mediaStream) {
+        try {
+          // Clean capture (echo cancellation / noise suppression / gain) gives
+          // Whisper a much better signal and cuts mis-hearings.
+          this.mediaStream = await navigator.mediaDevices.getUserMedia({
+            audio: {
+              echoCancellation: true,
+              noiseSuppression: true,
+              autoGainControl: true,
+              channelCount: 1,
+            },
+          })
+        } catch {
+          // No mic access for recording; fall back to browser-only transcript.
+          this.mediaStream = null
+        }
       }
+      // Start recording immediately so the whole utterance is captured from
+      // the first word (recognition-detected speech lags and would clip it).
+      this.startRecording()
     }
     try {
       this.recognition.start()
@@ -263,10 +286,6 @@ export class SpeechController {
       this.endpointTimer = null
     }
     this.discardRecording()
-    if (this.mediaStream) {
-      this.mediaStream.getTracks().forEach((t) => t.stop())
-      this.mediaStream = null
-    }
     this.recognition.stop()
   }
 

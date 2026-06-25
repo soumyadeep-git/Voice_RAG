@@ -43,8 +43,6 @@ export default function App() {
   const clientRef = useRef<VoiceClient | null>(null)
   const convRef = useRef<string | null>(null)
   const answerRef = useRef('')
-  const voiceActiveRef = useRef(false)
-  const speakingRef = useRef(false)
   const supported = speechSupported()
 
   const handleEvent = useCallback((ev: ServerEvent) => {
@@ -58,15 +56,16 @@ export default function App() {
       case 'answer_chunk':
         answerRef.current = `${answerRef.current} ${ev.text}`.trim()
         updateAssistant(answerRef.current, undefined, undefined)
+        // Speak each sentence as it arrives so audio starts right away and
+        // stays in step with the text, instead of waiting for the full answer
+        // to be synthesized after it has already appeared on screen.
+        speechRef.current?.speak(ev.text)
         break
       case 'answer_complete':
         updateAssistant(ev.answer, ev.citations, ev.verification)
         setPassages(ev.passages)
         setStage('idle')
         answerRef.current = ''
-        // Speak the full answer once it's complete (natural prosody, one
-        // synthesis call) rather than choppily per streamed chunk.
-        speechRef.current?.speak(ev.answer)
         break
       case 'interrupted':
         setStage('idle')
@@ -110,6 +109,9 @@ export default function App() {
     setError(null)
     setPartial('')
     answerRef.current = ''
+    // Show the working indicator immediately rather than waiting for the first
+    // status to round-trip from the backend.
+    setStage('thinking')
     setMessages((prev) => [...prev, { role: 'user', content: text }])
     clientRef.current?.ask(text, convRef.current)
   }, [])
@@ -138,16 +140,7 @@ export default function App() {
           }
         },
         onListeningChange: setListening,
-        onSpeakingChange: (s) => {
-          setSpeaking(s)
-          const was = speakingRef.current
-          speakingRef.current = s
-          // When the assistant finishes speaking, resume listening for the
-          // next turn (hands-free), unless the user turned voice off.
-          if (was && !s && voiceActiveRef.current) {
-            speechRef.current?.startListening()
-          }
-        },
+        onSpeakingChange: setSpeaking,
         onError: (e) => setError(`Mic: ${e}`),
       },
       transcribeAudio,
@@ -167,10 +160,8 @@ export default function App() {
     const speech = speechRef.current
     if (!speech) return
     if (listening) {
-      voiceActiveRef.current = false
       speech.stopListening()
     } else {
-      voiceActiveRef.current = true
       // Tapping the mic while the assistant is talking interrupts it.
       if (speech.isSpeaking()) {
         speech.cancelSpeech()
@@ -197,7 +188,7 @@ export default function App() {
           <UploadPanel />
         </aside>
         <main className="center">
-          <ConversationView messages={messages} partial={partial} />
+          <ConversationView messages={messages} partial={partial} stage={stage} />
           {error && <p className="error banner">{error}</p>}
           <VoiceConsole
             listening={listening}

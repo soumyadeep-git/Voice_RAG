@@ -18,6 +18,30 @@ SEARCH_TOOL = {
     },
 }
 
+LIST_DOCUMENTS_TOOL = {
+    "type": "function",
+    "function": {
+        "name": "list_documents",
+        "description": "List the documents currently in the knowledge base (filenames and how "
+        "many passages each was split into). Use this for preliminary questions about which "
+        "documents or files exist, or what topics are available to ask about \u2014 NOT for "
+        "questions about the contents inside the documents (use search_documents for those).",
+        "parameters": {"type": "object", "properties": {}},
+    },
+}
+
+
+def format_document_list(documents: list[dict]) -> str:
+    ready = [d for d in documents if d.get("status") == "ready"]
+    docs = ready or documents
+    if not docs:
+        return "No documents have been uploaded yet."
+    lines = [
+        f"- {d.get('filename') or d.get('id')} ({d.get('num_chunks') or 0} passages)"
+        for d in docs
+    ]
+    return "Documents in the knowledge base:\n" + "\n".join(lines)
+
 
 def format_location(passage: dict) -> str:
     parts = []

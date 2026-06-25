@@ -67,10 +67,18 @@ async def _handle_ask(websocket: WebSocket, msg: dict, interrupt: asyncio.Event)
     context = memory.load_context(conv_id)
     loop = asyncio.get_event_loop()
 
+    def on_stage(stage: str) -> None:
+        # Called from the executor thread; hop back onto the event loop to send.
+        asyncio.run_coroutine_threadsafe(
+            _safe_send(websocket, {"type": "status", "stage": stage}), loop
+        )
+
     try:
         result = await loop.run_in_executor(
             None,
-            lambda: answer_question(question, context["history"], context["summary"]),
+            lambda: answer_question(
+                question, context["history"], context["summary"], on_stage=on_stage
+            ),
         )
     except LLMUnavailableError as exc:
         await _safe_send(websocket, {"type": "error", "message": str(exc)})
