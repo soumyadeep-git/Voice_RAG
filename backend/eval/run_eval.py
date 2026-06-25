@@ -10,11 +10,13 @@ os.environ["CHROMA_DIR"] = "storage/eval_chroma"
 os.environ["SQLITE_PATH"] = "storage/eval.sqlite"
 os.environ["DATA_DIR"] = "storage/eval_data"
 
-# The eval makes many LLM calls; the free-tier 70B model has a small daily token
-# budget, so the harness runs on the lighter "instant" model (much larger cap).
-# Production answers still use the 70B model configured in .env.
-EVAL_MODEL = os.environ.get("EVAL_MODEL", "llama-3.1-8b-instant")
-os.environ["GROQ_ANSWER_MODEL"] = EVAL_MODEL
+# The eval makes many LLM calls. By default it runs on the same model the app
+# ships with (Cerebras `gpt-oss-120b`). Point .env at any OpenAI-compatible
+# provider and override the model with EVAL_MODEL, e.g.
+#   LLM_BASE_URL=https://api.groq.com/openai/v1 EVAL_MODEL=llama-3.3-70b-versatile
+EVAL_MODEL = os.environ.get("EVAL_MODEL", "gpt-oss-120b")
+os.environ["ANSWER_MODEL"] = EVAL_MODEL
+os.environ["FAST_MODEL"] = EVAL_MODEL
 
 import yaml  # noqa: E402
 

@@ -1,13 +1,13 @@
 # Evaluation Report
 
-Pipeline model: `llama-3.1-8b-instant` · corpus: `backend/eval/fixtures/`
+Pipeline model: `gpt-oss-120b` · corpus: `backend/eval/fixtures/`
 
 ## Metrics
 
 - Retrieval hit-rate: 89% (8/9)
 - Answer groundedness: 89% (8/9)
 - Refusal accuracy: 100% (2/2)
-- Conflict detection: 0% (0/2)
+- Conflict detection: 50% (1/2)
 
 ## Per-question results
 
@@ -15,18 +15,18 @@ Pipeline model: `llama-3.1-8b-instant` · corpus: `backend/eval/fixtures/`
 | --- | --- | --- | --- | --- |
 | q1 | answerable | grounded | hit | ok |
 | q2 | answerable | grounded | hit | ok |
-| q3 | answerable | partially_grounded | hit | ok |
-| q4 | answerable | conflict | hit | ok |
+| q3 | answerable | grounded | hit | ok |
+| q4 | answerable | grounded | hit | ok |
 | q5 | answerable | grounded | hit | ok |
-| q6 | answerable | partially_grounded | hit | ok |
-| q7 | answerable | partially_grounded | MISS | ok |
-| q8 | conflict | grounded | hit | ok |
-| q9 | conflict | refused | hit | MISS |
+| q6 | answerable | grounded | hit | MISS |
+| q7 | answerable | unverified | MISS | ok |
+| q8 | conflict | conflict | hit | ok |
+| q9 | conflict | grounded | hit | ok |
 | q10 | unanswerable | refused | - | ok |
 | q11 | unanswerable | refused | - | ok |
 
 ## Failures / weaknesses
 
-- [q7] answerable: verdict=partially_grounded — The CCPA allows consumers to recover statutory damages of between 100 and 750 US dollars per consumer per incident for u
-- [q8] conflict: verdict=grounded — A business must handle at least 100,000 consumers or households annually to fall under the CCPA, according to passage [2
-- [q9] conflict: verdict=refused — We don't know the current consumer-count threshold for covered businesses under the CCPA, as the documents disagree.
+- [q6] answerable: verdict=grounded — The GDPR requires an explicit, freely‑given opt‑in consent before personal data can be processed [2]. The CCPA uses an o
+- [q7] answerable: verdict=unverified — The GDPR sets administrative fines that can reach €10 million (or 2 % of global turnover) for less‑serious breaches and 
+- [q9] conflict: verdict=grounded — Yes. The original CCPA set the threshold at 50,000 consumers, households or devices [1]. The later version raised it to 
